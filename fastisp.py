@@ -81,8 +81,6 @@ def makeUnsharpMaskFilter(strengthParameter) -> np.ndarray:
     
     unsharpMaskKernel = gaussianFilterKernel + strengthParameter * ( identityFilterKernel - gaussianFilterKernel )
 
-    print(unsharpMaskKernel)
-
     return unsharpMaskKernel
 
 def ispApplyKernel(img_in, kernel) -> np.ndarray:
