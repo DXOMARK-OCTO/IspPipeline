@@ -5,7 +5,7 @@ import numpy as np
 import scipy.ndimage
 
 # Function that removes Black Level And Normalize between 0 and 1
-def ispBlackLevel(img_raw, bl) -> np.ndarray :
+def ispBlackLevel(img_raw, bl, wl) -> np.ndarray :
   img_out = img_raw.copy()
   img_out = (img_out - bl) / (wl - bl)
   img_out[img_out < 0] = 0
@@ -95,7 +95,7 @@ def ispApplyKernel(img_in, kernel) -> np.ndarray:
 
 def isp(img_in, blackLevel, gain, WBGains, colorMatrix, whiteLevel) -> np.ndarray :
 
-  img_bl = ispBlackLevel(img_in, blackLevel)
+  img_bl = ispBlackLevel(img_in, blackLevel, whiteLevel)
   img_gain = ispGain(img_bl, gain)
   img_split = ispSplitColors(img_gain)
   img_wb = ispWhiteBalance(img_split, WBGains)
