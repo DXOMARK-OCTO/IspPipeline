@@ -15,19 +15,40 @@ def ispBlackLevel(img_raw, bl, wl) -> np.ndarray :
 def ispGain(img_in, gain) -> np.ndarray :
   return gain*img_in.copy().clip(0, 1)
 
-def ispSplitColors(img_in) -> np.ndarray:
+def ispSplitColors(bayer, img_in) -> np.ndarray:
   h, w = img_in.shape
   img_out = np.zeros((h, w, 3))
-  # Red
-  img_out[0::2, 0::2, 0] = img_in[0::2, 0::2]
-  # Green
-  img_out[1::2, 0::2, 1] = img_in[1::2, 0::2]
-  img_out[0::2, 1::2, 1] = img_in[0::2, 1::2]
-  # Blue
-  img_out[1::2, 1::2, 2] = img_in[1::2, 1::2]
+
+  if bayer[0][0] == 0:
+    # Red
+    img_out[0::2, 0::2, 0] = img_in[0::2, 0::2]
+    # Green
+    img_out[1::2, 0::2, 1] = img_in[1::2, 0::2]
+    img_out[0::2, 1::2, 1] = img_in[0::2, 1::2]
+    # Blue
+    img_out[1::2, 1::2, 2] = img_in[1::2, 1::2]
+  else:  
+    # Red
+    img_out[1::2, 0::2, 0] = img_in[1::2, 0::2]
+    # Green
+    img_out[0::2, 0::2, 1] = img_in[0::2, 0::2]
+    img_out[1::2, 1::2, 1] = img_in[1::2, 1::2]
+    # Blue
+    img_out[0::2, 1::2, 2] = img_in[0::2, 1::2]
+ 
   return img_out
 
-def ispAdvancedDemosaicing(img_in) -> np.ndarray:
+def ispBilinearDemosaicing(img_in) -> np.ndarray:
+  kernel_G  = np.array([[0, 0.25, 0], [0.25, 1, 0.25], [0, 0.25, 0]])
+  kernel_RB = np.array([[0.25, 0.5, 0.25], [0.5, 1, 0.5], [0.25, 0.5, 0.25]])
+  img_out = np.empty_like(img_in)
+  img_out[:, :, 0] = scipy.ndimage.correlate(img_in[:, :, 0], kernel_RB, mode='mirror')
+  img_out[:, :, 1] = scipy.ndimage.correlate(img_in[:, :, 1], kernel_G , mode='mirror')
+  img_out[:, :, 2] = scipy.ndimage.correlate(img_in[:, :, 2], kernel_RB, mode='mirror')
+  return img_out
+
+
+def ispAdvancedDemosaicing(bayer, img_in) -> np.ndarray:
   img_out = np.empty_like(img_in)
   h, w, _ = img_in.shape
   # Compute two proposals for G
@@ -41,9 +62,13 @@ def ispAdvancedDemosaicing(img_in) -> np.ndarray:
   img_out[:, :, 1] = (var_H > var_V).choose(green_H, green_V)
   # Compute deltaR and deltaB
   deltaR = np.zeros((h, w))
-  deltaR[0::2, 0::2] = img_in[0::2, 0::2, 0] - img_out[0::2, 0::2, 1]
   deltaB = np.zeros((h, w))
-  deltaB[1::2, 1::2] = img_in[1::2, 1::2, 2] - img_out[1::2, 1::2, 1]
+  if bayer[0][0] == 0:
+    deltaR[0::2, 0::2] = img_in[0::2, 0::2, 0] - img_out[0::2, 0::2, 1]
+    deltaB[1::2, 1::2] = img_in[1::2, 1::2, 2] - img_out[1::2, 1::2, 1]
+  else:
+    deltaR[1::2, 0::2] = img_in[1::2, 0::2, 0] - img_out[1::2, 0::2, 1]
+    deltaB[0::2, 1::2] = img_in[0::2, 1::2, 2] - img_out[0::2, 1::2, 1]
   # Linear interpolation for deltaR and deltaB
   kernel_RB = np.array([[0.25, 0.5, 0.25], [0.5, 1, 0.5], [0.25, 0.5, 0.25]])
   deltaR = scipy.ndimage.correlate(deltaR, kernel_RB, mode='mirror')
@@ -91,13 +116,14 @@ def ispApplyKernel(img_in, kernel) -> np.ndarray:
   img_out[:, :, 2] = scipy.ndimage.correlate(img_in[:, :, 2], kernel, mode='nearest').clip(0, 1)
   return img_out
 
-def isp(img_in, blackLevel, gain, WBGains, colorMatrix, whiteLevel) -> np.ndarray :
+def isp(img_in, bayer, blackLevel, gain, WBGains, colorMatrix, whiteLevel) -> np.ndarray :
 
   img_bl = ispBlackLevel(img_in, blackLevel, whiteLevel)
   img_gain = ispGain(img_bl, gain)
-  img_split = ispSplitColors(img_gain)
+  img_split = ispSplitColors(bayer, img_gain)
   img_wb = ispWhiteBalance(img_split, WBGains)
-  img_dms = ispAdvancedDemosaicing(img_wb)
+  img_dms = ispAdvancedDemosaicing(bayer, img_wb)
+  #img_dms = ispBilinearDemosaicing(img_wb)
   img_ccm = ispColorMatrix(img_dms,colorMatrix)
   img_gamma = ispApplyGamma(img_ccm, 1/2.2)
 
@@ -113,6 +139,8 @@ def isp(img_in, blackLevel, gain, WBGains, colorMatrix, whiteLevel) -> np.ndarra
 
 if __name__ == '__main__':
     raw = rawpy.imread(r".\SonyA7S3\ISO100.dng")
+    #raw = rawpy.imread(r".\pixel6.dng")
+    
 
     bp = raw.raw_pattern
     bl = raw.black_level_per_channel
@@ -124,7 +152,7 @@ if __name__ == '__main__':
     # cropRaw = np.array(raw.raw_image.copy()).reshape((raw.sizes.raw_height, raw.sizes.raw_width)).astype('float')[900:1300,1950:2350]
     cropRaw = np.array(raw.raw_image.copy()).reshape((raw.sizes.raw_height, raw.sizes.raw_width)).astype('float')
 
-    cropIsp = isp(cropRaw, bl[0], 2, wb[:3], cm, wl)
+    cropIsp = isp(cropRaw, bp, bl[0], 2, wb[:3], cm, wl)
 
     outimg = cropIsp.copy()
     outimg[outimg < 0] = 0
