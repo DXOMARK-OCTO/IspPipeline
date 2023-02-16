@@ -148,22 +148,23 @@ def isp(img_in, bayer, blackLevel, gain, WBGains, colorMatrix, whiteLevel) -> np
   img_dms = ispAdvancedDemosaicing(bayer, img_wb)
   #img_dms = ispBilinearDemosaicing(img_wb)
   img_ccm = ispColorMatrix(img_dms,colorMatrix)
-  img_gamma = ispApplyGamma(img_ccm, 1/2.2)
 
   satMatrix = makeSatMatrix(1.5)
-  
-  img_ccm = ispColorMatrix(img_gamma,satMatrix)
+  #img_ccm = ispColorMatrix(img_dms,satMatrix)
+
+  img_gamma = ispApplyGamma(img_ccm, 1/2.2)
 
   usmKernel = makeUnsharpMaskFilter(2)
 
-  img_out = ispApplyKernel(img_ccm,usmKernel)
+  img_out = ispApplyKernel(img_gamma,usmKernel)
 
   return img_out
 
 if __name__ == '__main__':
     #raw = rawpy.imread(r".\SonyA7S3\ISO100.dng")
-    raw = rawpy.imread(r".\Pixel3a\iso300.dng")
+    # raw = rawpy.imread(r".\Pixel3a\iso300.dng")
     # raw = rawpy.imread(r".\Pixel6.dng")
+    raw = rawpy.imread(r".\OppoFindX3Pro\ColorChecker\Gretag_6500K_100Lux.dng")
     
 
     bp = raw.raw_pattern
@@ -182,5 +183,4 @@ if __name__ == '__main__':
     outimg[outimg < 0] = 0
     outimg[outimg > 1] = 1
     outimg = outimg * 255
-    #imageio.imwrite("ISO100_ISP.jpg", outimg.astype('uint8'))
-    imageio.imwrite("Pixel3A_ISO300_ISP.jpg", outimg.astype('uint8'))
+    imageio.imwrite("OppoFindX3_ISP.jpg", outimg.astype('uint8'))
