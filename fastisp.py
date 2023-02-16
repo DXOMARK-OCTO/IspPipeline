@@ -27,7 +27,7 @@ def ispSplitColors(bayer, img_in) -> np.ndarray:
     img_out[0::2, 1::2, 1] = img_in[0::2, 1::2]
     # Blue
     img_out[1::2, 1::2, 2] = img_in[1::2, 1::2]
-  else:  
+  elif bayer[0][0] == 3:  
     # Red
     img_out[1::2, 0::2, 0] = img_in[1::2, 0::2]
     # Green
@@ -35,7 +35,23 @@ def ispSplitColors(bayer, img_in) -> np.ndarray:
     img_out[1::2, 1::2, 1] = img_in[1::2, 1::2]
     # Blue
     img_out[0::2, 1::2, 2] = img_in[0::2, 1::2]
- 
+  elif bayer[0][0] == 2:  
+    # Red
+    img_out[1::2, 1::2, 0] = img_in[1::2, 1::2]
+    # Green
+    img_out[0::2, 1::2, 1] = img_in[0::2, 1::2]
+    img_out[1::2, 0::2, 1] = img_in[1::2, 0::2]
+    # Blue
+    img_out[0::2, 0::2, 2] = img_in[0::2, 0::2]
+  else:  
+    # Red
+    img_out[0::2, 1::2, 0] = img_in[0::2, 1::2]
+    # Green
+    img_out[0::2, 0::2, 1] = img_in[0::2, 0::2]
+    img_out[1::2, 1::2, 1] = img_in[1::2, 1::2]
+    # Blue
+    img_out[1::2, 0::2, 2] = img_in[1::2, 0::2]
+
   return img_out
 
 def ispBilinearDemosaicing(img_in) -> np.ndarray:
@@ -66,9 +82,16 @@ def ispAdvancedDemosaicing(bayer, img_in) -> np.ndarray:
   if bayer[0][0] == 0:
     deltaR[0::2, 0::2] = img_in[0::2, 0::2, 0] - img_out[0::2, 0::2, 1]
     deltaB[1::2, 1::2] = img_in[1::2, 1::2, 2] - img_out[1::2, 1::2, 1]
-  else:
+  elif bayer[0][0] == 3:
     deltaR[1::2, 0::2] = img_in[1::2, 0::2, 0] - img_out[1::2, 0::2, 1]
     deltaB[0::2, 1::2] = img_in[0::2, 1::2, 2] - img_out[0::2, 1::2, 1]
+  elif bayer[0][0] == 2:
+    deltaR[1::2, 1::2] = img_in[1::2, 1::2, 0] - img_out[1::2, 1::2, 1]
+    deltaB[0::2, 0::2] = img_in[0::2, 0::2, 2] - img_out[0::2, 0::2, 1]
+  else:
+    deltaR[0::2, 1::2] = img_in[0::2, 1::2, 0] - img_out[0::2, 1::2, 1]
+    deltaB[1::2, 0::2] = img_in[1::2, 0::2, 2] - img_out[1::2, 0::2, 1]
+
   # Linear interpolation for deltaR and deltaB
   kernel_RB = np.array([[0.25, 0.5, 0.25], [0.5, 1, 0.5], [0.25, 0.5, 0.25]])
   deltaR = scipy.ndimage.correlate(deltaR, kernel_RB, mode='mirror')
@@ -138,8 +161,9 @@ def isp(img_in, bayer, blackLevel, gain, WBGains, colorMatrix, whiteLevel) -> np
   return img_out
 
 if __name__ == '__main__':
-    raw = rawpy.imread(r".\SonyA7S3\ISO100.dng")
-    #raw = rawpy.imread(r".\pixel6.dng")
+    #raw = rawpy.imread(r".\SonyA7S3\ISO100.dng")
+    raw = rawpy.imread(r".\Pixel3a\iso300.dng")
+    # raw = rawpy.imread(r".\Pixel6.dng")
     
 
     bp = raw.raw_pattern
@@ -158,4 +182,5 @@ if __name__ == '__main__':
     outimg[outimg < 0] = 0
     outimg[outimg > 1] = 1
     outimg = outimg * 255
-    imageio.imwrite("ISO100_ISP.jpg", outimg.astype('uint8'))
+    #imageio.imwrite("ISO100_ISP.jpg", outimg.astype('uint8'))
+    imageio.imwrite("Pixel3A_ISO300_ISP.jpg", outimg.astype('uint8'))
